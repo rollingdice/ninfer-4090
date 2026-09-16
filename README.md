@@ -141,6 +141,26 @@ cmd /c "call ""C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC
 cmd /c "call ""C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"" && ninja -C build-ninja apps/ninfer.exe apps/ninfer-serve.exe bench/ninfer_bench.exe -j 32"
 ```
 
+### Linux (RTX 4090 / `sm_89`)
+
+Install CUDA 13.3, GCC/G++ 13, CMake, Ninja, FFmpeg development libraries, pkg-config, and libcurl development headers. From the repository root, configure and build the native RTX 4090 applications:
+
+```bash
+cmake -S . -B build-linux-sm89 -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER=/usr/bin/gcc-13 \
+  -DCMAKE_CXX_COMPILER=/usr/bin/g++-13 \
+  -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+  -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++-13 \
+  -DCMAKE_CUDA_ARCHITECTURES=89 \
+  -DNINFER_BUILD_APPS=ON \
+  -DBUILD_TESTING=OFF \
+  -DNINFER_BUILD_BENCHMARKS=OFF
+cmake --build build-linux-sm89 --parallel 2 --target ninfer ninfer-serve
+```
+
+The resulting executables are `build-linux-sm89/apps/ninfer` and `build-linux-sm89/apps/ninfer-serve`.
+
 ---
 
 ## Disclaimer

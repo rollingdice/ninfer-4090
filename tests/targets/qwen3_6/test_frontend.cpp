@@ -425,6 +425,31 @@ int test_mid_conversation_system_render() {
     return failures;
 }
 
+int test_sharp_v22_1_chat_template() {
+    const fi::CompiledChatTemplate sharp = fi::CompiledChatTemplate::resolve(
+        reasoning_effort_template_source(), ninfer::ChatStyle::SharpV22_1);
+    const auto capabilities = sharp.capabilities();
+    int failures = 0;
+    failures += check(capabilities.reasoning_effort.high, "Sharp v22.1 did not expose high effort");
+    failures += check(capabilities.reasoning_effort.default_effort == ninfer::ReasoningEffort::Medium,
+                      "Sharp v22.1 default effort is not medium");
+
+    fi::ChatMessage user;
+    user.role = "user";
+    fi::ChatPart user_part;
+    user_part.kind = fi::ChatPartKind::Text;
+    user_part.text = "What is 2+2?";
+    user.parts.push_back(std::move(user_part));
+    fi::ChatRenderOptions options;
+    options.reasoning_effort = ninfer::ReasoningEffort::Max;
+    const auto rendered = sharp.render({user}, options);
+    failures += check(rendered.text.find("<|im_start|>system\n") != std::string::npos,
+                      "Sharp v22.1 omitted the synthetic system block");
+    failures += check(rendered.text.find("Answer directly, after thinking.") != std::string::npos,
+                      "Sharp v22.1 omitted the terse system instruction");
+    return failures;
+}
+
 int test_reasoning_effort_chat_template() {
     constexpr std::string_view low_instructions =
         "Reasoning effort is set to low. Keep your thinking brief and focused, moving directly "
@@ -1098,6 +1123,7 @@ int main() {
         failures += test_official_tokenizer_merge();
         failures += test_official_chat_template();
         failures += test_mid_conversation_system_render();
+        failures += test_sharp_v22_1_chat_template();
         failures += test_reasoning_effort_chat_template();
         failures += test_turn_rewrite_trace();
         failures += test_official_resource_guards();

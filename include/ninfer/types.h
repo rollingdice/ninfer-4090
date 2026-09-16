@@ -71,6 +71,14 @@ struct LoadProgress {
     std::function<void(std::string_view phase, std::uint64_t done, std::uint64_t total)> callback;
 };
 
+// Prompt steering style. Default keeps the artifact's chat template behavior as-is;
+// SharpV22_1 overlays the Sharp v22.1 terseness instruction and reasoning-effort
+// mapping on top of the compiled template without touching the official artifact.
+enum class ChatStyle : std::uint8_t {
+    Default,
+    SharpV22_1,
+};
+
 struct EngineOptions {
     std::filesystem::path artifact_path;
     int device                         = 0;
@@ -84,6 +92,7 @@ struct EngineOptions {
     SpeculativeOptions speculative;
     bool enable_vision                 = false;
     std::uint32_t vision_max_tokens    = 8192;
+    ChatStyle chat_style               = ChatStyle::Default;
     bool use_cuda_graph = true;
     bool enable_prompt_cache               = false;
     std::filesystem::path prompt_cache_dir = "";          // empty resolves to default user cache dir
@@ -254,14 +263,19 @@ struct ChatMessage {
 };
 
 enum class ReasoningEffort : std::uint8_t {
+    None,
+    Minimal,
     Low,
     Medium,
+    High,
     XHigh,
+    Max,
 };
 
 struct ReasoningEffortCapabilities {
     bool low    = false;
     bool medium = false;
+    bool high   = false;
     bool xhigh  = false;
     std::optional<ReasoningEffort> default_effort;
 
@@ -271,8 +285,14 @@ struct ReasoningEffortCapabilities {
             return low;
         case ReasoningEffort::Medium:
             return medium;
+        case ReasoningEffort::High:
+            return high;
         case ReasoningEffort::XHigh:
             return xhigh;
+        case ReasoningEffort::None:
+        case ReasoningEffort::Minimal:
+        case ReasoningEffort::Max:
+            return false;
         }
         return false;
     }

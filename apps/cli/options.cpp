@@ -67,11 +67,25 @@ KvCapacityPolicy parse_kv_capacity(const char* text) {
     return KvCapacityPolicy::explicit_capacity(parse_u32(text, "kv-capacity"));
 }
 
-ReasoningEffort parse_reasoning_effort(std::string_view text) {
+ReasoningEffort parse_reasoning_effort(std::string_view text, bool& force_disable_thinking) {
     if (text == "low") { return ReasoningEffort::Low; }
     if (text == "medium") { return ReasoningEffort::Medium; }
     if (text == "xhigh") { return ReasoningEffort::XHigh; }
+    if (text == "none") {
+        force_disable_thinking = true;
+        return ReasoningEffort::Medium;
+    }
+    if (text == "minimal") { return ReasoningEffort::Minimal; }
+    if (text == "high") { return ReasoningEffort::High; }
+    if (text == "max") { return ReasoningEffort::Max; }
     throw std::invalid_argument("invalid reasoning-effort: " + std::string(text));
+}
+
+ChatStyle parse_chat_style(std::string_view text) {
+    if (text == "default") { return ChatStyle::Default; }
+    if (text == "sharp-v22.1") { return ChatStyle::SharpV22_1; }
+    throw std::invalid_argument("invalid chat-style: " + std::string(text) +
+                                " (expected default or sharp-v22.1)");
 }
 
 } // namespace
@@ -118,7 +132,8 @@ std::string usage_text(const char* argv0) {
            "  --vision-max-tokens <N>     Vision scratchpad token capacity (default: 8192)\n\n"
            "Reasoning & Output Control:\n"
            "  --no-thinking               Disable deep reasoning/thinking mode (applies non-thinking defaults)\n"
-           "  --reasoning-effort <effort> Set thinking depth budget preset (low | medium | xhigh)\n"
+           "  --reasoning-effort <effort> Set thinking depth budget preset (none | minimal | low | medium | high | xhigh | max)\n"
+           "  --chat-style <style>        Prompt style (default | sharp-v22.1)\n"
            "  --raw-output                Stream raw tokens directly without stripping reasoning tags\n"
            "  --print-token-ids           Print emitted token IDs alongside output to stderr\n"
            "  --stop <text>               Add content stop string (can be repeated)\n"
@@ -182,7 +197,14 @@ Options parse_options(int argc, char** argv) {
         } else if (arg == "--no-thinking") {
             options.enable_thinking = false;
         } else if (arg == "--reasoning-effort") {
-            options.reasoning_effort = parse_reasoning_effort(value(arg));
+            bool force_no_thinking = false;
+            options.reasoning_effort = parse_reasoning_effort(value(arg), force_no_thinking);
+            if (force_no_thinking) {
+                options.enable_thinking = false;
+                options.reasoning_effort = std::nullopt;
+            }
+        } else if (arg == "--chat-style") {
+            options.chat_style = parse_chat_style(value(arg));
         } else if (arg == "--vision") {
             options.enable_vision = true;
         } else if (arg == "--vision-max-tokens" || arg == "--vision-limit") {

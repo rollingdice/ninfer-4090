@@ -290,7 +290,8 @@ GenerationService::GenerationService(ServeOptions options, LoadProgress load_pro
     engine_options.prompt_cache_dir     = options_.prompt_cache_dir;
     engine_options.prompt_cache_max_bytes = options_.prompt_cache_max_bytes;
     engine_options.wddm_evictable_budget  = options_.wddm_evictable_budget;
-    engine_options.speculative          = options_.speculative;
+    engine_options.chat_style             = options_.chat_style;
+    engine_options.speculative            = options_.speculative;
     engine_options.load_progress        = std::move(load_progress);
     engine_              = std::make_unique<ninfer::Engine>(std::move(engine_options));
     prompt_capabilities_ = engine_->prompt_capabilities();

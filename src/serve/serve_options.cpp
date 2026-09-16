@@ -128,7 +128,8 @@ std::string serve_usage_text(const char* argv0) {
            "  --default-max-tokens <N>    Default maximum output tokens when omitted in client request (default: " + default_max_toks + ")\n"
            "  --no-thinking               Disable reasoning/thinking mode globally by default\n"
            "  --preserve-thinking         Retain closed-turn assistant reasoning in multi-turn conversation history\n"
-           "  --reasoning-effort <effort> Default thinking depth preset (low | medium | xhigh) when omitted by client\n\n"
+           "  --reasoning-effort <effort> Default thinking depth preset (none | minimal | low | medium | high | xhigh | max) when omitted by client\n"
+           "  --chat-style <style>        Prompt style (default | sharp-v22.1)\n\n"
            "Sampler Defaults (overridden by client request parameters):\n"
            "  --temperature <F>           Fallback softmax temperature (0.0 to 2.0)\n"
            "  --top-p <F>                 Fallback nucleus sampling cumulative probability cutoff (0.0 to 1.0)\n"
@@ -276,9 +277,19 @@ ServeOptions parse_serve_options(int argc, char** argv) {
             const auto effort     = parse_requested_reasoning_effort(val);
             if (!effort) {
                 throw std::invalid_argument("invalid value for " + arg + ": '" + val +
-                                            "' (expected low, medium, or xhigh)");
+                                            "' (expected none, minimal, low, medium, high, xhigh, or max)");
             }
             options.default_reasoning_effort = *effort;
+        } else if (arg == "--chat-style") {
+            const std::string val = require_value("--chat-style");
+            if (val == "default") {
+                options.chat_style = ChatStyle::Default;
+            } else if (val == "sharp-v22.1") {
+                options.chat_style = ChatStyle::SharpV22_1;
+            } else {
+                throw std::invalid_argument("invalid --chat-style: " + val +
+                                            " (expected default or sharp-v22.1)");
+            }
         } else if (arg == "--cors") {
             options.enable_cors = true;
         } else if (arg == "--ui") {

@@ -40,7 +40,7 @@ Deliver maximum single-GPU inference performance, stability, and correctness for
 ## Development & Verification Rules
 
 1. **Strict Build Command Policy**: Never run build commands (`ninja`, `cmake`, etc.) unless explicitly instructed by the user.
-2. **Mandatory CTest Verification**: For every new feature or critical change, implement corresponding CTests. All 84 CTests must pass with zero failures before completing work.
+2. **Mandatory CTest Verification**: For every new feature or critical change, implement corresponding CTests. All 84 CTests must pass with zero failures before completing work. On this Linux machine only 17 tests are CPU-only; when the GPU is busy run that CPU-only subset instead and note the restriction in the report.
 3. **Numerical Verification**: Verify operator correctness against independent FP32/FP64 mathematical oracles. Pairwise parity against previous implementations is supplementary only.
 4. **CUDA Architecture & Kernel Engineering Rules**:
    - **Stream Concurrency & Ordering**: Operations on legacy default Stream 0 do not synchronize with non-blocking streams (`cudaStreamNonBlocking`). Any allocation, touch-fill, or reset on Stream 0 must be explicitly drained (e.g. `cudaDeviceSynchronize` or stream events) before publishing pointers to non-blocking streams like `load_stream`.
@@ -59,12 +59,31 @@ Deliver maximum single-GPU inference performance, stability, and correctness for
 
 ---
 
+## GPU Guardrail
+
+- The RTX 4090 is **shared**: the user runs local models (LM Studio etc.) and desktop workloads on it.
+- **Never start** `ninfer-serve`, `ninfer`, benchmarks, or GPU tests unless the user has explicitly said the GPU is free. Check `nvidia-smi` first.
+- When the user asks for verification while the GPU is in use: run the CPU-only CTest subset and stop there. Report what could not be exercised.
+
+## Working Context (this checkout)
+
+- Branch: `feat/rtx-4090-sm89-native` (fork specialized for native `sm_89` single-GPU execution).
+- Model artifact: `models/qwen3_8_27b.ninfer` (18.2 GB, sha256 `eec39564993d6e9c7d5e383382a760f093465c9d163ec9a1bd6b80199514bf3e`).
+- Serving: `./start.sh` → `ninfer-serve models/qwen3_8_27b.ninfer --kv-dtype rk4v4-e8 --spec mtp --draft-tokens 4 --lm-head-draft --max-context 240000 --preserve-thinking` (OpenAI `/v1/*` + Anthropic `/v1/messages` at `127.0.0.1:8080`).
+- VRAM budget at 240k context: weights 16.67 GiB + KV 3.88 GiB, ~1.47 GiB free. Do not raise `--max-context` without re-checking headroom; the repo's "safe context" matrix is a Windows WDDM benchmark recommendation, not a guarantee on this Linux desktop.
+- Measured reference points (single-request smoke, `rk2v4-e8`): prefill pp2048 ≈ 2,093 tok/s; decode MTP0 52.8, MTP2 95.2, MTP4 102.1, MTP7 98.4 tok/s. Workload benchmarks (`ninfer_bench`, MTP7): 216.9–229.9 tok/s.
+- The worktree typically carries uncommitted in-flight changes (serve options, chat template, target registry). Never `git add -A` / commit / amend without an explicit request.
+
 ## Local Environment
 
-- **Operating System**: Windows 11
-- **Toolchain**: Microsoft Visual Studio 2022 (MSVC x64), CUDA Toolkit 13.x
-- **Build System**: CMake with Ninja generator (`build-ninja/`)
-- **Compilation Flags**: Whole-program device compilation with `--split-compile=0` for full multi-threaded CPU utilization.
+- **This machine**: Ubuntu Linux (kernel 6.8), 24-core CPU, RTX 4090 (24 GB, driver 590.x).
+- **Toolchain**: CUDA 13.3, GCC/G++ 13, CMake + Ninja.
+- **CMake**: v1.2.0+ requires CMake ≥ 4.0 (`CMP0169` in `CMakeLists.txt`); system cmake 3.28.3 fails to configure. `build-linux-sm89/` is pinned to CMake 4.4.3 from the venv at `/tmp/cmake4venv` (`python3 -m venv /tmp/cmake4venv && /tmp/cmake4venv/bin/pip install "cmake>=4.0"`, then `cmake -S . -B build-linux-sm89` once if the venv is gone).
+- **Build tree**: `build-linux-sm89/` (apps + tests enabled, benchmarks off):
+  ```bash
+  cmake --build build-linux-sm89 --target ninfer ninfer-serve
+  ```
+- **Upstream target**: Windows 11, MSVC x64, `build-ninja/` with `--split-compile=0` whole-program device compilation. Keep both paths building.
 
 ---
 

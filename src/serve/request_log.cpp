@@ -184,6 +184,20 @@ Json overrides_json(const ninfer::SamplingOverrides& overrides) {
     return result;
 }
 
+std::string reasoning_effort_name(std::optional<ninfer::ReasoningEffort> effort) {
+    if (!effort) { return {}; }
+    switch (*effort) {
+    case ninfer::ReasoningEffort::None: return "none";
+    case ninfer::ReasoningEffort::Minimal: return "minimal";
+    case ninfer::ReasoningEffort::Low: return "low";
+    case ninfer::ReasoningEffort::Medium: return "medium";
+    case ninfer::ReasoningEffort::High: return "high";
+    case ninfer::ReasoningEffort::XHigh: return "xhigh";
+    case ninfer::ReasoningEffort::Max: return "max";
+    }
+    return {};
+}
+
 Json request_json(const RequestLogContext& context) {
     return Json{{"request_id", context.id},
                 {"protocol", context.protocol},
@@ -197,13 +211,8 @@ Json request_json(const RequestLogContext& context) {
                 {"tool_choice", tool_choice_name(context.tool_choice)},
                 {"has_tool_history", context.has_tool_history},
                 {"enable_thinking", context.enable_thinking},
-                {"reasoning_effort",
-                 context.reasoning_effort
-                     ? Json(*context.reasoning_effort == ninfer::ReasoningEffort::Low
-                                ? "low"
-                                : (*context.reasoning_effort == ninfer::ReasoningEffort::Medium
-                                       ? "medium"
-                                       : "xhigh"))
+                {"reasoning_effort", context.reasoning_effort
+                     ? Json(reasoning_effort_name(context.reasoning_effort))
                      : Json(nullptr)},
                 {"preserve_thinking", context.preserve_thinking},
                 {"preserve_thinking_semantic_change", context.preserve_thinking_semantic_change},
@@ -311,8 +320,20 @@ std::string format_request_start(const RequestLogContext& context) {
         case ninfer::ReasoningEffort::Medium:
             thinking_str += " (medium)";
             break;
+        case ninfer::ReasoningEffort::High:
+            thinking_str += " (high)";
+            break;
         case ninfer::ReasoningEffort::XHigh:
             thinking_str += " (xhigh)";
+            break;
+        case ninfer::ReasoningEffort::None:
+            thinking_str += " (none)";
+            break;
+        case ninfer::ReasoningEffort::Minimal:
+            thinking_str += " (minimal)";
+            break;
+        case ninfer::ReasoningEffort::Max:
+            thinking_str += " (max)";
             break;
         }
     }

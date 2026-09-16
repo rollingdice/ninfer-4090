@@ -208,9 +208,10 @@ void validate_tokenizer_config(const FrontendResources& resources) {
     }
 }
 
-fi::CompiledChatTemplate compile_chat_template(const FrontendResources& resources) {
+fi::CompiledChatTemplate compile_chat_template(const FrontendResources& resources,
+                                                  ChatStyle chat_style) {
     validate_tokenizer_config(resources);
-    return fi::CompiledChatTemplate::resolve(resources.chat_template_jinja);
+    return fi::CompiledChatTemplate::resolve(resources.chat_template_jinja, chat_style);
 }
 
 [[noreturn]] void throw_processor_error(const fi::ProcessorError& error) {
@@ -613,8 +614,8 @@ DecoderState terminal_state(DecoderState state) {
 class Frontend::Impl {
 public:
     Impl(const FrontendResources& resources, bool registered_checkpoint, bool vision_enabled_,
-         std::uint32_t vision_max_tokens_)
-        : chat_template(compile_chat_template(resources)),
+         std::uint32_t vision_max_tokens_, ChatStyle chat_style)
+        : chat_template(compile_chat_template(resources, chat_style)),
           tokenizer(std::make_shared<const fi::Tokenizer>(
               fi::TokenizerResources{.tokenizer_json         = resources.tokenizer_json,
                                      .tokenizer_config_json  = resources.tokenizer_config_json,
@@ -908,16 +909,17 @@ Frontend& Frontend::operator=(Frontend&&) noexcept = default;
 Frontend::~Frontend()                              = default;
 
 Frontend make_frontend(const FrontendResources& resources, bool vision_enabled,
-                       std::uint32_t vision_max_tokens) {
+                       std::uint32_t vision_max_tokens, ChatStyle chat_style) {
     return Frontend(
-        std::make_shared<const Frontend::Impl>(resources, true, vision_enabled, vision_max_tokens));
+        std::make_shared<const Frontend::Impl>(resources, true, vision_enabled, vision_max_tokens,
+                                               chat_style));
 }
 
 Frontend FrontendTestAccess::create_component(const FrontendResources& resources,
                                               bool vision_enabled,
                                               std::uint32_t vision_max_tokens) {
     return Frontend(std::make_shared<const Frontend::Impl>(resources, false, vision_enabled,
-                                                           vision_max_tokens));
+                                                           vision_max_tokens, ChatStyle::Default));
 }
 
 const PreparedPromptData& PreparedPromptAccess::view(const PreparedPrompt& prompt) {
